@@ -1,177 +1,289 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>MultiChat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiChat Pro</title>
+    
+    <!-- Biblioteca para Twitch -->
+    <script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
 
-<script src="https://unpkg.com/tmi.js@1.8.5"></script>
+    <style>
+        :root {
+            --twitch-color: #9146FF;
+            --yt-color: #FF0000;
+            --bg-dark: #0e0e10;
+            --panel-bg: #1f1f23;
+            --text-main: #efeff1;
+        }
 
-<style>
-body {
-  margin: 0;
-  background: #0d0d0f;
-  font-family: "Segoe UI", sans-serif;
-  color: #eee;
-}
+        body {
+            margin: 0;
+            background: var(--bg-dark);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-header {
-  background: #15151a;
-  padding: 12px;
-  text-align: center;
-  font-size: 18px;
-  border-bottom: 1px solid #222;
-}
+        /* Header */
+        header {
+            background: var(--panel-bg);
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-.chat {
-  max-width: 700px;
-  margin: auto;
-  padding: 10px;
-}
+        .btn-config {
+            background: #333;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
 
-.msg {
-  display: flex;
-  gap: 10px;
-  padding: 8px;
-  margin-bottom: 6px;
-  border-radius: 10px;
-}
+        /* Área de Chat */
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
 
-.avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-}
+        .msg {
+            animation: fadeIn 0.3s ease;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 12px;
+            border-radius: 8px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
 
-.twitch { border-left: 3px solid #9146FF; }
-.youtube { border-left: 3px solid #FF0000; }
+        .msg.twitch { border-left: 4px solid var(--twitch-color); }
+        .msg.youtube { border-left: 4px solid var(--yt-color); }
 
-.panel {
-  max-width: 500px;
-  margin: 30px auto;
-  background: #15151a;
-  padding: 20px;
-  border-radius: 12px;
-}
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #333;
+        }
 
-input {
-  width: 100%;
-  margin: 5px 0 15px;
-  padding: 8px;
-  border-radius: 6px;
-  border: none;
-}
+        .user-info {
+            flex: 1;
+        }
 
-button {
-  width: 100%;
-  padding: 10px;
-  background: #9146FF;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-}
-</style>
+        .username {
+            font-weight: 700;
+            margin-bottom: 2px;
+            display: block;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Painel de Configuração */
+        #config {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 13px; color: #adadb8; }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #000;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 12px;
+            background: var(--twitch-color);
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .overlay {
+            position: fixed;
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 90;
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-
 <body>
 
-<header>🎮 MultiChat</header>
+<header>
+    <span>MultiChat 💬</span>
+    <button class="btn-config" onclick="toggleConfig()">Configurar</button>
+</header>
 
-<div id="config" class="panel">
-  <h3>Configurar</h3>
-
-  <p>Canal da Twitch (ex: meucanal)</p>
-  <input id="twitch">
-
-  <p>API Key do YouTube</p>
-  <input id="ytkey">
-
-  <p>Live Chat ID (YouTube)</p>
-  <input id="ytchat">
-
-  <button onclick="salvar()">Começar</button>
-
-  <p style="font-size:12px;opacity:0.7;">
-  ⚠️ YouTube é opcional — se não souber, pode deixar vazio.
-  </p>
+<div id="chat-container">
+    <!-- Mensagens aparecerão aqui -->
 </div>
 
-<div id="chat" class="chat" style="display:none;"></div>
+<div id="overlay" class="overlay"></div>
+<div id="config">
+    <h2 style="margin-top:0">Configurações</h2>
+    
+    <div class="input-group">
+        <label>Canal da Twitch</label>
+        <input type="text" id="tw-channel" placeholder="Ex: alanzoka">
+    </div>
+
+    <hr style="border: 0.5px solid #333; margin: 20px 0;">
+
+    <div class="input-group">
+        <label>YouTube API Key</label>
+        <input type="password" id="yt-key" placeholder="Sua Google API Key">
+    </div>
+    <div class="input-group">
+        <label>Live Chat ID (YouTube)</label>
+        <input type="text" id="yt-chatid" placeholder="ID do Chat da Live">
+        <small style="font-size:10px; color: #888;">Dica: Você consegue o Chat ID usando o ID do vídeo em ferramentas online de "Live Chat ID finder".</small>
+    </div>
+
+    <button class="btn-save" onclick="saveConfigs()">Salvar e Iniciar</button>
+</div>
 
 <script>
-let client;
+    let twitchClient = null;
+    let ytInterval = null;
+    let lastYtMsgId = new Set(); // Para não repetir mensagens do Youtube
 
-function salvar() {
-  const twitch = document.getElementById("twitch").value;
-  const ytkey = document.getElementById("ytkey").value;
-  const ytchat = document.getElementById("ytchat").value;
+    // Carregar dados salvos ao abrir
+    window.onload = () => {
+        if(localStorage.getItem('tw-channel')) {
+            document.getElementById('tw-channel').value = localStorage.getItem('tw-channel');
+            document.getElementById('yt-key').value = localStorage.getItem('yt-key');
+            document.getElementById('yt-chatid').value = localStorage.getItem('yt-chatid');
+            startChats();
+        } else {
+            toggleConfig();
+        }
+    };
 
-  localStorage.setItem("twitch", twitch);
-  localStorage.setItem("ytkey", ytkey);
-  localStorage.setItem("ytchat", ytchat);
+    function toggleConfig() {
+        const show = document.getElementById('config').style.display === 'none';
+        document.getElementById('config').style.display = show ? 'block' : 'none';
+        document.getElementById('overlay').style.display = show ? 'block' : 'none';
+    }
 
-  iniciar();
-}
+    function saveConfigs() {
+        localStorage.setItem('tw-channel', document.getElementById('tw-channel').value.trim().toLowerCase());
+        localStorage.setItem('yt-key', document.getElementById('yt-key').value.trim());
+        localStorage.setItem('yt-chatid', document.getElementById('yt-chatid').value.trim());
+        
+        location.reload(); // Recarrega para aplicar
+    }
 
-function iniciar() {
-  document.getElementById("config").style.display = "none";
-  document.getElementById("chat").style.display = "block";
+    function startChats() {
+        toggleConfig();
+        const twChannel = localStorage.getItem('tw-channel');
+        const ytKey = localStorage.getItem('yt-key');
+        const ytId = localStorage.getItem('yt-chatid');
 
-  const twitch = localStorage.getItem("twitch");
-  const ytkey = localStorage.getItem("ytkey");
-  const ytchat = localStorage.getItem("ytchat");
+        // Configurar Twitch
+        if(twChannel) {
+            twitchClient = new tmi.Client({ channels: [twChannel] });
+            twitchClient.connect().catch(console.error);
+            twitchClient.on('message', (channel, tags, message, self) => {
+                addMessage('twitch', tags['display-name'], message, `https://ui-avatars.com/api/?name=${tags['display-name']}&background=9146FF&color=fff`);
+            });
+        }
 
-  if (twitch) {
-    client = new tmi.Client({ channels: [twitch] });
-    client.connect();
+        // Configurar Youtube (Polling a cada 4 segundos para não gastar cota rápido)
+        if(ytKey && ytId) {
+            fetchYoutube(ytKey, ytId);
+            ytInterval = setInterval(() => fetchYoutube(ytKey, ytId), 4000);
+        }
+    }
 
-    client.on("message", (channel, tags, message) => {
-      addMsg("twitch", tags.username, message,
-        tags["profile-image-url"] ||
-        "https://static-cdn.jtvnw.net/jtv_user_pictures/xarth/404_user_70x70.png"
-      );
-    });
-  }
+    async function fetchYoutube(key, chatId) {
+        try {
+            const url = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${chatId}&part=snippet,authorDetails&key=${key}`;
+            const response = await fetch(url);
+            const data = await response.json();
 
-  if (ytkey && ytchat) {
-    setInterval(() => ytFetch(ytkey, ytchat), 4000);
-  }
-}
+            if(data.items) {
+                data.items.forEach(item => {
+                    if(!lastYtMsgId.has(item.id)) {
+                        lastYtMsgId.add(item.id);
+                        // Limitar o set para não crescer infinitamente
+                        if(lastYtMsgId.size > 100) lastYtMsgId.delete(lastYtMsgId.values().next().value);
+                        
+                        addMessage(
+                            'youtube', 
+                            item.authorDetails.displayName, 
+                            item.snippet.displayMessage, 
+                            item.authorDetails.profileImageUrl
+                        );
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("Erro Youtube:", err);
+        }
+    }
 
-function addMsg(type, user, text, avatar) {
-  const div = document.createElement("div");
-  div.className = "msg " + type;
+    function addMessage(platform, user, text, img) {
+        const container = document.getElementById('chat-container');
+        const div = document.createElement('div');
+        div.className = `msg ${platform}`;
+        
+        div.innerHTML = `
+            <img class="avatar" src="${img}">
+            <div class="user-info">
+                <span class="username" style="color: ${platform === 'twitch' ? '#bf94ff' : '#ff8a8a'}">${user}</span>
+                <span class="text">${text}</span>
+            </div>
+        `;
 
-  div.innerHTML = `
-    <img class="avatar" src="${avatar}">
-    <div>
-      <b>${user}</b><br>${text}
-    </div>
-  `;
+        container.appendChild(div);
+        
+        // Auto-scroll para o final
+        container.scrollTop = container.scrollHeight;
 
-  document.getElementById("chat").prepend(div);
-}
-
-async function ytFetch(key, id) {
-  try {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${id}&part=snippet,authorDetails&key=${key}`
-    );
-    const data = await res.json();
-
-    data.items.forEach(msg => {
-      addMsg(
-        "youtube",
-        msg.authorDetails.displayName,
-        msg.snippet.displayMessage,
-        msg.authorDetails.profileImageUrl
-      );
-    });
-  } catch {}
-}
-
-// auto start se já tiver config
-if (localStorage.getItem("twitch")) iniciar();
+        // Limitar mensagens na tela para não travar o celular
+        if(container.childNodes.length > 100) {
+            container.removeChild(container.firstChild);
+        }
+    }
 </script>
 
 </body>
