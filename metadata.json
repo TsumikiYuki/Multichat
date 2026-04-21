@@ -1,0 +1,6 @@
+{
+  "name": "Social Stream Hub",
+  "description": "Visualize chats de Twitch e YouTube simultaneamente em uma única tela.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
