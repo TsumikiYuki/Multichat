@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>MultiChat</title>
+
+<script src="https://unpkg.com/tmi.js@1.8.5"></script>
+
+<style>
+body {
+  margin: 0;
+  background: #0d0d0f;
+  font-family: "Segoe UI", sans-serif;
+  color: #eee;
+}
+
+header {
+  background: #15151a;
+  padding: 12px;
+  text-align: center;
+  font-size: 18px;
+  border-bottom: 1px solid #222;
+}
+
+.chat {
+  max-width: 700px;
+  margin: auto;
+  padding: 10px;
+}
+
+.msg {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.twitch { border-left: 3px solid #9146FF; }
+.youtube { border-left: 3px solid #FF0000; }
+
+.panel {
+  max-width: 500px;
+  margin: 30px auto;
+  background: #15151a;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+input {
+  width: 100%;
+  margin: 5px 0 15px;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background: #9146FF;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>🎮 MultiChat</header>
+
+<div id="config" class="panel">
+  <h3>Configurar</h3>
+
+  <p>Canal da Twitch (ex: meucanal)</p>
+  <input id="twitch">
+
+  <p>API Key do YouTube</p>
+  <input id="ytkey">
+
+  <p>Live Chat ID (YouTube)</p>
+  <input id="ytchat">
+
+  <button onclick="salvar()">Começar</button>
+
+  <p style="font-size:12px;opacity:0.7;">
+  ⚠️ YouTube é opcional — se não souber, pode deixar vazio.
+  </p>
+</div>
+
+<div id="chat" class="chat" style="display:none;"></div>
+
+<script>
+let client;
+
+function salvar() {
+  const twitch = document.getElementById("twitch").value;
+  const ytkey = document.getElementById("ytkey").value;
+  const ytchat = document.getElementById("ytchat").value;
+
+  localStorage.setItem("twitch", twitch);
+  localStorage.setItem("ytkey", ytkey);
+  localStorage.setItem("ytchat", ytchat);
+
+  iniciar();
+}
+
+function iniciar() {
+  document.getElementById("config").style.display = "none";
+  document.getElementById("chat").style.display = "block";
+
+  const twitch = localStorage.getItem("twitch");
+  const ytkey = localStorage.getItem("ytkey");
+  const ytchat = localStorage.getItem("ytchat");
+
+  if (twitch) {
+    client = new tmi.Client({ channels: [twitch] });
+    client.connect();
+
+    client.on("message", (channel, tags, message) => {
+      addMsg("twitch", tags.username, message,
+        tags["profile-image-url"] ||
+        "https://static-cdn.jtvnw.net/jtv_user_pictures/xarth/404_user_70x70.png"
+      );
+    });
+  }
+
+  if (ytkey && ytchat) {
+    setInterval(() => ytFetch(ytkey, ytchat), 4000);
+  }
+}
+
+function addMsg(type, user, text, avatar) {
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+
+  div.innerHTML = `
+    <img class="avatar" src="${avatar}">
+    <div>
+      <b>${user}</b><br>${text}
+    </div>
+  `;
+
+  document.getElementById("chat").prepend(div);
+}
+
+async function ytFetch(key, id) {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${id}&part=snippet,authorDetails&key=${key}`
+    );
+    const data = await res.json();
+
+    data.items.forEach(msg => {
+      addMsg(
+        "youtube",
+        msg.authorDetails.displayName,
+        msg.snippet.displayMessage,
+        msg.authorDetails.profileImageUrl
+      );
+    });
+  } catch {}
+}
+
+// auto start se já tiver config
+if (localStorage.getItem("twitch")) iniciar();
+</script>
+
+</body>
+</html>
